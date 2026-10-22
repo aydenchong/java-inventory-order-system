@@ -1,9 +1,9 @@
 package com.ayden.inventory;
 
-import com.ayden.inventory.domain.Product;
-import com.ayden.inventory.domain.Inventory;
+import com.ayden.inventory.domain.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public class Main {
 
@@ -28,9 +28,7 @@ public class Main {
         displayProduct(cable);
 
         try {
-            new Product(
-                    "P004", "Invalid Product", new BigDecimal("-10.00")
-            );
+            new Product("P004", "Invalid Product", new BigDecimal("-10.00"));
             System.out.println("TEST FAILED!");
         } catch (IllegalArgumentException e) {
             System.out.println("Validation passed: " + e.getMessage());
@@ -65,6 +63,27 @@ public class Main {
         } catch (IllegalStateException e) {
             System.out.println("\nValidation passed: " + e.getMessage());
         }
+
+        System.out.println("\n=== ORDER MANAGEMENT ===");
+
+        OrderItem mouseItem = new OrderItem(
+                mouse.getProductId(),
+                2,
+                mouse.getPrice()
+        );
+
+        OrderItem keyboardItem = new OrderItem(
+                keyboard.getProductId(),
+                1,
+                keyboard.getPrice()
+        );
+
+        Order order = new Order(
+                "ORD001",
+                List.of(mouseItem, keyboardItem)
+        );
+
+        displayOrder(order);
     }
 
     private static void displayProduct(Product product) {
@@ -79,5 +98,21 @@ public class Main {
         System.out.println("On Hand: " + inventory.getQuantityOnHand());
         System.out.println("Reserved: " + inventory.getQuantityReserved());
         System.out.println("Available: " + inventory.getAvailableQuantity());
+    }
+
+    private static void displayOrder(Order order) {
+
+        System.out.println("Order ID: " + order.getOrderId());
+        System.out.println("Status: " + order.getStatus());
+
+        for (OrderItem item : order.getItems()) {
+            System.out.println(
+                    "Product: " + item.getProductId()
+                            + " | Quantity: " + item.getQuantity()
+                            + " | Subtotal: RM" + item.getSubtotal()
+            );
+        }
+
+        System.out.println("Total: RM" + order.getTotalAmount());
     }
 }
