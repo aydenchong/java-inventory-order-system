@@ -12,26 +12,24 @@ public class Order {
     private OrderStatus status;
 
     public Order(String orderId, List<OrderItem> items) {
-
         if (orderId == null || orderId.isBlank()) {
             throw new IllegalArgumentException("Invalid order ID!");
         }
 
         if (items == null || items.isEmpty()) {
-            throw new IllegalArgumentException("Order must contain at least one item!");
+            throw new IllegalArgumentException("Order must contain items!");
         }
 
         Set<String> productIds = new HashSet<>();
 
         for (OrderItem item : items) {
-
             if (item == null) {
                 throw new IllegalArgumentException("Order item cannot be null!");
             }
 
             if (!productIds.add(item.getProductId())) {
                 throw new IllegalArgumentException(
-                        "Duplicate product in order: " + item.getProductId()
+                        "Duplicate product: " + item.getProductId()
                 );
             }
         }
@@ -54,7 +52,6 @@ public class Order {
     }
 
     public BigDecimal getTotalAmount() {
-
         BigDecimal total = BigDecimal.ZERO;
 
         for (OrderItem item : items) {
@@ -62,5 +59,28 @@ public class Order {
         }
 
         return total;
+    }
+
+    void markReserved() {
+        transition(OrderStatus.CREATED, OrderStatus.RESERVED);
+    }
+
+    void markFulfilled() {
+        transition(OrderStatus.RESERVED, OrderStatus.FULFILLED);
+    }
+
+    void markCancelled() {
+        transition(OrderStatus.RESERVED, OrderStatus.CANCELLED);
+    }
+
+    private void transition(OrderStatus expected, OrderStatus next) {
+        if (status != expected) {
+            throw new IllegalStateException(
+                    "Invalid order status transition: "
+                            + status + " -> " + next
+            );
+        }
+
+        status = next;
     }
 }
