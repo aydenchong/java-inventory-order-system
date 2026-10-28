@@ -1,7 +1,7 @@
 package com.ayden.inventory.io;
 
 import com.ayden.inventory.domain.*;
-
+import java.util.Comparator;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
@@ -275,20 +275,42 @@ public final class ApplicationStateStore {
                 );
             }
 
-            // Replay orders through the existing business logic.
+            // Replay in an order that avoids artificial stock shortages.
+            orders.sort(Comparator.comparingInt(saved ->
+                    switch (saved.status()) {
+                        case CANCELLED -> 0;
+                        case FULFILLED -> 1;
+                        case RESERVED -> 2;
+                        case CREATED -> throw new IllegalArgumentException(
+                                "CREATED orders cannot be restored"
+                        );
+                    }
+            ));
+
             for (SavedOrder saved : orders) {
 
                 restored.placeOrder(
                         saved.id(), saved.quantities()
                 );
 
-                if (saved.status() == OrderStatus.FULFILLED) {
-                    restored.fulfillOrder(saved.id());
+                switch (saved.status()) {
 
-                } else if (saved.status() == OrderStatus.CANCELLED) {
-                    restored.cancelOrder(saved.id());
+                    case CANCELLED ->
+                            restored.cancelOrder(saved.id());
+
+                    case FULFILLED ->
+                            restored.fulfillOrder(saved.id());
+
+                    case RESERVED -> {
+                        // Keep the reservation active.
+                    }
+
+                    case CREATED -> throw new IllegalArgumentException(
+                            "CREATED orders cannot be restored"
+                    );
                 }
             }
+
 
             // Verify that the restored inventory matches the file.
             for (SavedProduct saved : products.values()) {
