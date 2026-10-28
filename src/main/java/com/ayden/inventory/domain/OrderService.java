@@ -13,6 +13,13 @@ public class OrderService {
     private final Map<String, Inventory> inventories = new HashMap<>();
     private final Map<String, Order> orders = new HashMap<>();
 
+    public List<Order> listOrders() {
+        return orders.values()
+                .stream()
+                .sorted(Comparator.comparing(Order::getOrderId))
+                .toList();
+    }
+
     public void registerProduct(Product product, int initialQuantity) {
         if (product == null) {
             throw new IllegalArgumentException("Product cannot be null!");

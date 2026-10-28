@@ -1,10 +1,13 @@
+
 package com.ayden.inventory;
 
 import com.ayden.inventory.domain.*;
+import com.ayden.inventory.io.ApplicationStateStore;
 import com.ayden.inventory.io.InventoryCsvExporter;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -14,9 +17,30 @@ public class Main {
 
     private static final Scanner scanner = new Scanner(System.in);
 
+    private static final Path SAVE_FILE =
+            Path.of("data", "app-state.properties");
+
     public static void main(String[] args) {
 
         OrderService service = new OrderService();
+
+        // Automatically load saved data on startup.
+        if (Files.exists(SAVE_FILE)) {
+            try {
+                service = ApplicationStateStore.load(SAVE_FILE);
+                System.out.println("Previous application state restored!");
+
+            } catch (IOException e) {
+                System.out.println("Unable to load saved data: "
+                        + e.getMessage());
+                System.out.println(
+                        "Application stopped to protect the existing save file."
+                );
+                scanner.close();
+                return;
+            }
+        }
+
         boolean running = true;
 
         while (running) {
@@ -28,22 +52,47 @@ public class Main {
                 switch (choice) {
 
                     case "1" -> registerProduct(service);
+
                     case "2" -> viewStock(service);
+
                     case "3" -> placeOrder(service);
+
                     case "4" -> fulfillOrder(service);
+
                     case "5" -> cancelOrder(service);
+
                     case "6" -> viewOrder(service);
+
                     case "7" -> exportInventoryReport(service);
 
+                    case "8" -> saveData(service);
+
+                    case "9" -> {
+                        String confirmation = readInput(
+                                "Discard unsaved changes and reload? (yes/no): "
+                        );
+
+                        if (confirmation.equalsIgnoreCase("yes")) {
+                            service = ApplicationStateStore.load(SAVE_FILE);
+                            System.out.println("Data reloaded successfully!");
+                        } else {
+                            System.out.println("Reload cancelled.");
+                        }
+                    }
+
                     case "0" -> {
+                        ApplicationStateStore.save(service, SAVE_FILE);
                         running = false;
-                        System.out.println("Goodbye!");
+                        System.out.println("Data saved. Goodbye!");
                     }
 
                     default -> System.out.println("Invalid menu option!");
                 }
 
-            } catch (IllegalArgumentException | IllegalStateException e) {
+            } catch (IllegalArgumentException |
+                     IllegalStateException |
+                     IOException e) {
+
                 System.out.println("Operation failed: " + e.getMessage());
             }
 
@@ -64,6 +113,8 @@ public class Main {
         System.out.println("5. Cancel Order");
         System.out.println("6. View Order");
         System.out.println("7. Export Inventory CSV");
+        System.out.println("8. Save Data");
+        System.out.println("9. Load Data");
         System.out.println("0. Exit");
         System.out.println("=====================================");
     }
@@ -176,14 +227,21 @@ public class Main {
         try {
             int count = InventoryCsvExporter.export(service, outputFile);
 
-            System.out.println(
-                    "Exported " + count + " products to:"
-            );
+            System.out.println("Exported " + count + " products to:");
             System.out.println(outputFile.toAbsolutePath());
 
         } catch (IOException e) {
             System.out.println("Export failed: " + e.getMessage());
         }
+    }
+
+    private static void saveData(OrderService service)
+            throws IOException {
+
+        ApplicationStateStore.save(service, SAVE_FILE);
+
+        System.out.println("Data saved successfully!");
+        System.out.println(SAVE_FILE.toAbsolutePath());
     }
 
     private static void displayOrder(Order order) {
