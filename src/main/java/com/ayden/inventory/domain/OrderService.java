@@ -154,6 +154,13 @@ public class OrderService {
         );
     }
 
+    public List<Product> listProducts() {
+        return products.values()
+                .stream()
+                .sorted(Comparator.comparing(Product::getProductId))
+                .toList();
+    }
+
     private Order requireReservedOrder(String orderId) {
         Order order = getOrder(orderId);
 

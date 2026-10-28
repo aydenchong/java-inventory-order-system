@@ -1,8 +1,11 @@
 package com.ayden.inventory;
 
 import com.ayden.inventory.domain.*;
+import com.ayden.inventory.io.InventoryCsvExporter;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Scanner;
@@ -14,7 +17,6 @@ public class Main {
     public static void main(String[] args) {
 
         OrderService service = new OrderService();
-
         boolean running = true;
 
         while (running) {
@@ -26,16 +28,12 @@ public class Main {
                 switch (choice) {
 
                     case "1" -> registerProduct(service);
-
                     case "2" -> viewStock(service);
-
                     case "3" -> placeOrder(service);
-
                     case "4" -> fulfillOrder(service);
-
                     case "5" -> cancelOrder(service);
-
                     case "6" -> viewOrder(service);
+                    case "7" -> exportInventoryReport(service);
 
                     case "0" -> {
                         running = false;
@@ -65,6 +63,7 @@ public class Main {
         System.out.println("4. Fulfill Order");
         System.out.println("5. Cancel Order");
         System.out.println("6. View Order");
+        System.out.println("7. Export Inventory CSV");
         System.out.println("0. Exit");
         System.out.println("=====================================");
     }
@@ -88,7 +87,6 @@ public class Main {
         int quantity = readInt("Initial Stock: ");
 
         Product product = new Product(id, name, price);
-
         service.registerProduct(product, quantity);
 
         System.out.println("Product registered successfully!");
@@ -99,7 +97,6 @@ public class Main {
         System.out.println("\n--- View Stock ---");
 
         String id = readInput("Product ID: ");
-
         InventorySnapshot stock = service.getStock(id);
 
         System.out.println("On Hand: " + stock.onHand());
@@ -147,7 +144,6 @@ public class Main {
         System.out.println("\n--- Fulfill Order ---");
 
         String orderId = readInput("Order ID: ");
-
         service.fulfillOrder(orderId);
 
         System.out.println("Order fulfilled successfully!");
@@ -158,7 +154,6 @@ public class Main {
         System.out.println("\n--- Cancel Order ---");
 
         String orderId = readInput("Order ID: ");
-
         service.cancelOrder(orderId);
 
         System.out.println("Order cancelled successfully!");
@@ -169,10 +164,26 @@ public class Main {
         System.out.println("\n--- View Order ---");
 
         String orderId = readInput("Order ID: ");
-
         Order order = service.getOrder(orderId);
 
         displayOrder(order);
+    }
+
+    private static void exportInventoryReport(OrderService service) {
+
+        Path outputFile = Path.of("reports", "inventory.csv");
+
+        try {
+            int count = InventoryCsvExporter.export(service, outputFile);
+
+            System.out.println(
+                    "Exported " + count + " products to:"
+            );
+            System.out.println(outputFile.toAbsolutePath());
+
+        } catch (IOException e) {
+            System.out.println("Export failed: " + e.getMessage());
+        }
     }
 
     private static void displayOrder(Order order) {
