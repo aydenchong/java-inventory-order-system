@@ -161,6 +161,19 @@ public class OrderService {
         );
     }
 
+    public void restockProduct(String productId, int quantity) {
+
+        Inventory inventory = inventories.get(productId);
+
+        if (inventory == null) {
+            throw new IllegalArgumentException(
+                    "Unknown product: " + productId
+            );
+        }
+
+        inventory.restock(quantity);
+    }
+
     public List<Product> listProducts() {
         return products.values()
                 .stream()

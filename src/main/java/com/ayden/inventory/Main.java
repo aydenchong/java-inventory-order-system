@@ -1,4 +1,3 @@
-
 package com.ayden.inventory;
 
 import com.ayden.inventory.domain.*;
@@ -80,6 +79,8 @@ public class Main {
                         }
                     }
 
+                    case "10" -> restockProduct(service);
+
                     case "0" -> {
                         ApplicationStateStore.save(service, SAVE_FILE);
                         running = false;
@@ -115,6 +116,7 @@ public class Main {
         System.out.println("7. Export Inventory CSV");
         System.out.println("8. Save Data");
         System.out.println("9. Load Data");
+        System.out.println("10. Restock Product");
         System.out.println("0. Exit");
         System.out.println("=====================================");
     }
@@ -150,6 +152,23 @@ public class Main {
         String id = readInput("Product ID: ");
         InventorySnapshot stock = service.getStock(id);
 
+        System.out.println("On Hand: " + stock.onHand());
+        System.out.println("Reserved: " + stock.reserved());
+        System.out.println("Available: " + stock.available());
+    }
+
+    private static void restockProduct(OrderService service) {
+
+        System.out.println("\n--- Restock Product ---");
+
+        String productId = readInput("Product ID: ");
+        int quantity = readInt("Quantity to add: ");
+
+        service.restockProduct(productId, quantity);
+
+        InventorySnapshot stock = service.getStock(productId);
+
+        System.out.println("Product restocked successfully!");
         System.out.println("On Hand: " + stock.onHand());
         System.out.println("Reserved: " + stock.reserved());
         System.out.println("Available: " + stock.available());

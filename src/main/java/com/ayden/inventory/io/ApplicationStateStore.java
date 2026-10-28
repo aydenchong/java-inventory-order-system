@@ -252,65 +252,111 @@ public final class ApplicationStateStore {
                 );
             }
 
-            // Rebuild the inventory before replaying orders.
+            // Step 1: Create inventory with a safe initial quantity.
             OrderService restored = new OrderService();
 
             for (SavedProduct saved : products.values()) {
 
-                String id = saved.product().getProductId();
+                String productId = saved.product().getProductId();
 
-                long initial = Math.addExact(
+                long requiredInitial = Math.addExact(
                         (long) saved.onHand(),
-                        fulfilledQuantities.getOrDefault(id, 0L)
+                        fulfilledQuantities.getOrDefault(productId, 0L)
                 );
 
-                if (initial > Integer.MAX_VALUE) {
-                    throw new IllegalArgumentException(
-                            "Stock overflow for " + id
-                    );
-                }
+                int initialQuantity = (int) Math.min(
+                        requiredInitial,
+                        (long) Integer.MAX_VALUE
+                );
 
                 restored.registerProduct(
-                        saved.product(), (int) initial
+                        saved.product(),
+                        initialQuantity
                 );
             }
 
-            // Replay in an order that avoids artificial stock shortages.
-            orders.sort(Comparator.comparingInt(saved ->
-                    switch (saved.status()) {
-                        case CANCELLED -> 0;
-                        case FULFILLED -> 1;
-                        case RESERVED -> 2;
-                        case CREATED -> throw new IllegalArgumentException(
-                                "CREATED orders cannot be restored"
-                        );
-                    }
-            ));
-
+            // Step 2: Restore cancelled orders first.
+            // They must not permanently occupy inventory.
             for (SavedOrder saved : orders) {
 
-                restored.placeOrder(
-                        saved.id(), saved.quantities()
-                );
+                if (saved.status() == OrderStatus.CANCELLED) {
 
-                switch (saved.status()) {
+                    restored.placeOrder(
+                            saved.id(),
+                            saved.quantities()
+                    );
 
-                    case CANCELLED ->
-                            restored.cancelOrder(saved.id());
+                    restored.cancelOrder(saved.id());
+                }
+            }
 
-                    case FULFILLED ->
-                            restored.fulfillOrder(saved.id());
+            // Step 3: Restore fulfilled orders.
+            // Add temporary stock only when necessary.
+            for (SavedOrder saved : orders) {
 
-                    case RESERVED -> {
-                        // Keep the reservation active.
+                if (saved.status() == OrderStatus.FULFILLED) {
+
+                    for (Map.Entry<String, Integer> entry
+                            : saved.quantities().entrySet()) {
+
+                        String productId = entry.getKey();
+                        int quantity = entry.getValue();
+
+                        int available = restored
+                                .getStock(productId)
+                                .available();
+
+                        if (quantity > available) {
+                            restored.restockProduct(
+                                    productId,
+                                    quantity - available
+                            );
+                        }
                     }
 
-                    case CREATED -> throw new IllegalArgumentException(
-                            "CREATED orders cannot be restored"
+                    restored.placeOrder(
+                            saved.id(),
+                            saved.quantities()
+                    );
+
+                    restored.fulfillOrder(saved.id());
+                }
+            }
+
+            // Step 4: Restore the saved on-hand quantities.
+            for (SavedProduct saved : products.values()) {
+
+                String productId = saved.product().getProductId();
+
+                int currentOnHand = restored
+                        .getStock(productId)
+                        .onHand();
+
+                if (currentOnHand > saved.onHand()) {
+                    throw new IllegalArgumentException(
+                            "Inventory mismatch for " + productId
+                    );
+                }
+
+                if (currentOnHand < saved.onHand()) {
+                    restored.restockProduct(
+                            productId,
+                            saved.onHand() - currentOnHand
                     );
                 }
             }
 
+            // Step 5: Restore active reservations last.
+            for (SavedOrder saved : orders) {
+
+                if (saved.status() == OrderStatus.RESERVED) {
+
+                    restored.placeOrder(
+                            saved.id(),
+                            saved.quantities()
+                    );
+                }
+            }
 
             // Verify that the restored inventory matches the file.
             for (SavedProduct saved : products.values()) {
